@@ -91,8 +91,8 @@ class DQNAgent():
         with torch.no_grad():
             next_state_Qs = self.qnetwork_target(next_states)
 
-        target_Qs = np.squeeze(rewards) + gamma * torch.max(next_state_Qs, dim=1)[0]
-        predicted_Qs = self.qnetwork_local(states)[(np.arange(0,BATCH_SIZE),np.squeeze(actions))]
+        target_Qs = torch.squeeze(rewards) + gamma * torch.max(next_state_Qs, dim=1)[0] #returns tuple of (values,indices)
+        predicted_Qs = self.qnetwork_local(states).gather(1, actions).squeeze()
         criterion = nn.MSELoss()
         loss = criterion(predicted_Qs, target_Qs)
         self.optimizer.zero_grad()
