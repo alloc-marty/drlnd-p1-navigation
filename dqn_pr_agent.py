@@ -11,14 +11,29 @@ import torch.optim as optim
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 64         # minibatch size
-GAMMA = 0.99            # discount factor
+GAMMA = 1.0             # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR = 5e-4               # learning rate 
 UPDATE_EVERY = 4        # how often to update the network
-    
-class DQN_PR_Agent():
-    """Interacts with and learns from the environment."""
+E = 0.1                 # bias for priority
+INITIAL_ALPHA = 0.7     # initial alpha (1.0 implies random sampling per priority-distribution, 0.0 per uniform-distribution)
 
+
+class DQN_PR_Agent():
+    
+    def calc_prios_cb(self, experiences):
+        states, actions, rewards, next_states, dones = experiences
+
+        with torch.no_grad():
+            next_state_Qs = self.qnetwork_target(next_states).detach()   #Q values for all actions for each next_state
+            predicted_Qs = self.qnetwork_local(states).detach().gather(1, actions).squeeze()            
+        
+        target_Qs = torch.squeeze(rewards) + GAMMA * torch.max(next_state_Qs, dim=1)[0] #returns tuple of (values,indices)
+        sq_td_error = (target_Qs - predicted_Qs) * (target_Qs - predicted_Qs)
+        return sq_td_error.numpy() + E
+
+
+    """Interacts with and learns from the environment."""
     def __init__(self, state_size, action_size, seed, device):
         """Initialize an Agent object.
         
@@ -39,7 +54,7 @@ class DQN_PR_Agent():
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR)
         
         # Replay memory
-        self.memory = PriorityReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, seed, device)
+        self.memory = PriorityReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, seed, device, self.calc_prios_cb, INITIAL_ALPHA)
         
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
@@ -54,10 +69,11 @@ class DQN_PR_Agent():
         if self.t_step == 0:
             # If enough samples are available in memory, get random subset and learn
             if len(self.memory) > BATCH_SIZE:
+                self.memory.calc_prios()
                 experiences = self.memory.sample()
-                experiences
                 self.learn(experiences, GAMMA)
 
+        
 
     def choose_action(self, state, eps=0.) -> np.int32:
         """Returns action for given state as per current policy.
@@ -90,7 +106,7 @@ class DQN_PR_Agent():
         states, actions, rewards, next_states, dones = experiences
 
         with torch.no_grad():
-            next_state_Qs = self.qnetwork_target(next_states)
+            next_state_Qs = self.qnetwork_target(next_states).detach()   #Q values for all actions for each next_state
 
         target_Qs = torch.squeeze(rewards) + gamma * torch.max(next_state_Qs, dim=1)[0] #returns tuple of (values,indices)
         predicted_Qs = self.qnetwork_local(states).gather(1, actions).squeeze()
