@@ -11,12 +11,12 @@ import torch.optim as optim
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 64         # minibatch size
-GAMMA = 1.0             # discount factor
+GAMMA = 0.99             # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR = 5e-4               # learning rate 
 UPDATE_EVERY = 4        # how often to update the network
-E = 0.1                 # bias for priority
-INITIAL_ALPHA = 0.7     # initial alpha (1.0 implies random sampling per priority-distribution, 0.0 per uniform-distribution)
+E = 1                   # bias for priority
+INITIAL_ALPHA = 0.8     # initial alpha (1.0 implies random sampling per priority-distribution, 0.0 per uniform-distribution)
 
 
 class DQN_PR_Agent():
