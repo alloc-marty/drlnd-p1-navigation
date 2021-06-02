@@ -37,7 +37,10 @@ class DoubleDQNAgent():
         
         # Q-Network
         self.qnetwork_local = QNetwork(state_size, action_size, seed).to(device)
+        self.qnetwork_local.train()
         self.qnetwork_target = QNetwork(state_size, action_size, seed).to(device)
+        self.qnetwork_target.eval() #weights updated directly, not via training
+
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR)
         
         # Replay memory
@@ -72,7 +75,6 @@ class DoubleDQNAgent():
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
-        self.qnetwork_local.train()
 
         # Epsilon-greedy action selection
         if random.random() > eps:
@@ -89,12 +91,13 @@ class DoubleDQNAgent():
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
-
+        self.qnetwork_local.eval()
         with torch.no_grad():
             next_state_Qs = self.qnetwork_local(next_states)
             maxQ_next_actions = torch.max(next_state_Qs, dim=1)[1].unsqueeze(1)  #use qnetwork_local to identify Q-maximizing next_actions
             predicted_next_Qs = self.qnetwork_target(next_states).gather(1, maxQ_next_actions).squeeze() #then find Q-values for those next_states,next_actions using target network
-            
+
+        self.qnetwork_local.train()            
         predicted_Qs = self.qnetwork_local(states).gather(1, actions).squeeze()
         target_Qs = torch.squeeze(rewards) + gamma * predicted_next_Qs #returns tuple of (values,indices)
         criterion = nn.MSELoss()
